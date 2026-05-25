@@ -17,7 +17,13 @@ from rag_config import (
     TOP_K,
     MAX_EMBED_LEN,
     EMBED_DEVICE,
+    USE_RERANKER,
+    RERANK_MODEL_PATH,
+    RERANK_TOP_N,
+    RERANK_BATCH_SIZE,
 )
+
+from reranker import BGEReranker
 
 
 def last_token_pool(last_hidden_states, attention_mask):
@@ -162,24 +168,29 @@ class FaissRetriever:
 
 def build_context(results: List[Dict[str, Any]], max_chars: int = 6000) -> str:
     """
-    把检索到的 QA 拼接成给大模型看的参考资料。
+    把 rerank 后的 QA 拼接成给大模型看的参考资料。
     """
     parts = []
 
     for r in results:
         q = str(r.get("question", "")).strip()
         a = str(r.get("answer", "")).strip()
-        score = r.get("score", 0.0)
         rank = r.get("rank", "?")
+
+        faiss_score = r.get("faiss_score", r.get("score", 0.0))
+        rerank_score = r.get("rerank_score", None)
 
         if not q and not a:
             text = str(r.get("index_text", "")).strip()
         else:
             text = f"问题：{q}\n答案：{a}"
 
-        parts.append(
-            f"[资料{rank} | 相似度 {score:.4f}]\n{text}"
-        )
+        if rerank_score is not None:
+            header = f"[资料{rank} | FAISS相似度 {faiss_score:.4f} | Rerank分数 {rerank_score:.4f}]"
+        else:
+            header = f"[资料{rank} | 相似度 {faiss_score:.4f}]"
+
+        parts.append(f"{header}\n{text}")
 
     context = "\n\n".join(parts)
 
@@ -264,8 +275,9 @@ def call_vllm(question: str, context: str) -> str:
         raise RuntimeError(f"vLLM 返回格式异常：\n{json.dumps(data, ensure_ascii=False, indent=2)}") from e
 
 
-def print_retrieval_results(results: List[Dict[str, Any]]):
-    print("\n检索到的参考资料：")
+def print_retrieval_results(results: List[Dict[str, Any]], title: str = "检索到的参考资料"):
+    print(f"\n{title}：")
+
     for r in results:
         q = str(r.get("question", "")).replace("\n", " ").strip()
         a = str(r.get("answer", "")).replace("\n", " ").strip()
@@ -276,8 +288,22 @@ def print_retrieval_results(results: List[Dict[str, Any]]):
         if len(a) > 160:
             a = a[:160] + "..."
 
+        faiss_score = r.get("faiss_score", r.get("score", 0.0))
+        rerank_score = r.get("rerank_score", None)
+
         print("-" * 80)
-        print(f"[{r['rank']}] score={r['score']:.4f}, id={r.get('id')}")
+
+        if rerank_score is not None:
+            print(
+                f"[{r['rank']}] "
+                f"faiss_rank={r.get('faiss_rank', '?')}, "
+                f"faiss_score={faiss_score:.4f}, "
+                f"rerank_score={rerank_score:.4f}, "
+                f"id={r.get('id')}"
+            )
+        else:
+            print(f"[{r['rank']}] score={faiss_score:.4f}, id={r.get('id')}")
+
         print(f"Q: {q}")
         print(f"A: {a}")
 
@@ -291,6 +317,9 @@ def main():
     print(f"VLLM_URL         : {VLLM_URL}")
     print(f"VLLM_MODEL       : {VLLM_MODEL}")
     print(f"TOP_K            : {TOP_K}")
+    print(f"USE_RERANKER     : {USE_RERANKER}")
+    print(f"RERANK_MODEL_PATH: {RERANK_MODEL_PATH}")
+    print(f"RERANK_TOP_N     : {RERANK_TOP_N}")
     print("=" * 80)
 
     embedder = Qwen3Embedder(
@@ -304,6 +333,15 @@ def main():
         embedder=embedder,
     )
 
+    reranker = None
+
+    if USE_RERANKER:
+        reranker = BGEReranker(
+            model_path=RERANK_MODEL_PATH,
+            device=EMBED_DEVICE,
+            batch_size=RERANK_BATCH_SIZE,
+        )
+
     print("\n输入问题开始 RAG 问答。输入 exit / quit / q 退出。")
 
     while True:
@@ -316,18 +354,39 @@ def main():
         if not question:
             continue
 
+        # 1. FAISS 初筛
         results = retriever.search(question, top_k=TOP_K)
 
         if not results:
             print("没有检索到相关资料。")
             continue
 
-        print_retrieval_results(results)
+        print_retrieval_results(
+            results[:10],
+            title=f"FAISS 初筛结果 Top {min(10, len(results))}"
+        )
 
-        context = build_context(results)
+        # 2. Reranker 重排
+        if reranker is not None:
+            final_results = reranker.rerank(
+                query=question,
+                candidates=results,
+                top_n=RERANK_TOP_N,
+            )
+
+            print_retrieval_results(
+                final_results,
+                title=f"BGE Reranker 重排结果 Top {len(final_results)}"
+            )
+        else:
+            final_results = results[:RERANK_TOP_N]
+
+        # 3. 拼接 context
+        context = build_context(final_results)
 
         print("\n正在调用 vLLM 生成回答...\n")
 
+        # 4. LLM 生成
         answer = call_vllm(question, context)
 
         print("=" * 80)

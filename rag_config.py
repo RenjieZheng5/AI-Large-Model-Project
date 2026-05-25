@@ -30,9 +30,23 @@ VLLM_MODEL = os.environ.get(
     "qwen3-32b"
 )
 
-TOP_K = int(os.environ.get("TOP_K", "5"))
+TOP_K = int(os.environ.get("TOP_K", "30"))
 
-# 如果 vLLM 占用显存太多，可以运行前 export EMBED_DEVICE=cpu
+# 是否启用 reranker
+USE_RERANKER = os.environ.get("USE_RERANKER", "1") == "1"
+
+# reranker 模型路径
+RERANK_MODEL_PATH = os.environ.get(
+    "RERANK_MODEL_PATH",
+    "/autodl-fs/data/models/bge-reranker-v2-m3"
+)
+
+# reranker 重排后保留多少条进入 LLM
+RERANK_TOP_N = int(os.environ.get("RERANK_TOP_N", "5"))
+
+# reranker batch size
+RERANK_BATCH_SIZE = int(os.environ.get("RERANK_BATCH_SIZE", "8"))
+
 EMBED_DEVICE = os.environ.get("EMBED_DEVICE", "cuda")
 
 MAX_EMBED_LEN = int(os.environ.get("MAX_EMBED_LEN", "8192"))
