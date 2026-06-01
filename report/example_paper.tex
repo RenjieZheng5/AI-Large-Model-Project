@@ -1,0 +1,283 @@
+\begin{filecontents*}{references.bib}
+@inproceedings{lewis2020rag,
+  title     = {Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks},
+  author    = {Lewis, Patrick and Perez, Ethan and Piktus, Aleksandra and Petroni, Fabio and Karpukhin, Vladimir and Goyal, Naman and K{\"u}ttler, Heinrich and Lewis, Mike and Yih, Wen-tau and Rockt{\"a}schel, Tim and Riedel, Sebastian and Kiela, Douwe},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2020}
+}
+
+@article{johnson2019faiss,
+  title   = {Billion-scale similarity search with GPUs},
+  author  = {Johnson, Jeff and Douze, Matthijs and J{\'e}gou, Herv{\'e}},
+  journal = {IEEE Transactions on Big Data},
+  year    = {2019}
+}
+
+@inproceedings{kwon2023vllm,
+  title     = {Efficient Memory Management for Large Language Model Serving with PagedAttention},
+  author    = {Kwon, Woosuk and Li, Zhuohan and Zhuang, Siyuan and Sheng, Ying and Zheng, Lianmin and Yu, Cody Hao and Gonzalez, Joseph E. and Zhang, Hao and Stoica, Ion},
+  booktitle = {Proceedings of the ACM Symposium on Operating Systems Principles},
+  year      = {2023}
+}
+
+@article{xiao2024bge,
+  title   = {BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings},
+  author  = {Xiao, Shitao and Liu, Zheng and Zhang, Peitian and Muennighoff, Niklas},
+  journal = {arXiv preprint arXiv:2402.03216},
+  year    = {2024}
+}
+\end{filecontents*}
+
+\documentclass{article}
+
+% Use the official ICML style file.
+% For a course report with visible author information, keep [accepted].
+% If anonymous submission is required, change this line to: \usepackage{icml2025}
+\usepackage[accepted]{icml2025}
+
+% Recommended packages.
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{url}
+\usepackage{hyperref}
+
+% Optional: make the document compile even if a figure file is missing.
+\newcommand{\safeincludegraphics}[2][]{%
+  \IfFileExists{#2}{%
+    \includegraphics[#1]{#2}%
+  }{%
+    \fbox{%
+      \parbox[c][1.55in][c]{0.88\linewidth}{%
+        \centering Missing figure: \texttt{#2}%
+      }%
+    }%
+  }%
+}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\icmltitlerunning{A RAG System for SUSTech Campus Knowledge QA}
+
+\begin{document}
+
+\twocolumn[
+\icmltitle{A Retrieval-Augmented Generation System for SUSTech Campus Knowledge QA}
+
+\begin{icmlauthorlist}
+\icmlauthor{Zheng Renjie}{sustech}
+\icmlauthor{Chen Ximing}{sustech}
+\icmlauthor{Jiang Hongjun}{sustech}
+\end{icmlauthorlist}
+
+\icmlaffiliation{sustech}{Southern University of Science and Technology, Shenzhen, China}
+\icmlkeywords{Retrieval-Augmented Generation, Campus Question Answering, Dense Retrieval, Reranking, Query Rewriting}
+
+\vskip 0.3in
+]
+
+\printAffiliationsAndNotice{}
+
+\begin{abstract}
+This project builds a Retrieval-Augmented Generation (RAG) question answering system for Southern University of Science and Technology (SUSTech) campus knowledge. The system collects campus-related web documents, constructs a QA-style knowledge base, indexes it with dense embeddings and FAISS, and answers user questions through a locally deployed Qwen3-32B model. To improve retrieval quality, the system supports BGE reranking and LLM-based query rewriting. We evaluate four settings: direct LLM answering, basic RAG, RAG with reranking, and RAG with both query rewriting and reranking. On a 30-question SUSTech test set, direct LLM answering reaches only 36.67\% correctness with a 66.67\% hallucination rate. Basic RAG improves correctness to 80.00\% and reduces hallucination to 0.00\%. Reranking further improves correctness to 86.67\%, while the rewrite-plus-rerank setting achieves the best retrieval quality with Recall@5 of 96.67\%, MRR@5 of 94.44\%, and nDCG@5 of 95.86\%. These results show that RAG substantially improves factual accuracy, grounding, and source traceability for university-specific question answering.
+\end{abstract}
+
+\section{Introduction}
+
+Large language models (LLMs) are strong general-purpose question answering systems, but they are unreliable when the question depends on local, institution-specific, or frequently updated knowledge. Questions about SUSTech housing, course selection, library opening hours, student cards, scholarships, and examination rules require exact information from official campus documents. A direct LLM may answer fluently while relying on generic university knowledge, which can cause hallucinated or outdated answers.
+
+This project develops a practical RAG system for SUSTech campus knowledge question answering. Instead of asking the LLM to answer from parametric memory alone, the system first retrieves relevant evidence from a SUSTech knowledge base and then asks the LLM to answer based on the retrieved context. The project is motivated by the general RAG framework proposed by \citet{lewis2020rag}, but focuses on a local university knowledge scenario.
+
+The project studies three research questions:
+\begin{enumerate}
+    \item Does RAG improve answer correctness compared with direct LLM answering?
+    \item Do reranking and query rewriting improve retrieval quality?
+    \item Can the final system reduce hallucination and provide more traceable answers?
+\end{enumerate}
+
+\section{System Overview}
+
+The implemented system contains five major components: data collection, knowledge base construction, dense retrieval, optional query rewriting and reranking, and answer generation. Figure~\ref{fig:architecture} shows the full pipeline. The upper part is the online answering path, while the lower part shows the offline knowledge base construction process.
+
+\begin{figure*}[t]
+  \centering
+  \safeincludegraphics[width=0.95\textwidth]{figures/rag_architecture.png}
+  \caption{Architecture of the SUSTech campus RAG system. The online pipeline rewrites the user question, retrieves evidence from FAISS, reranks retrieved candidates, builds a compact context, and asks Qwen3-32B to generate a grounded answer with sources.}
+  \label{fig:architecture}
+\end{figure*}
+
+\section{Knowledge Base}
+
+The knowledge base is built from SUSTech-related web documents and processed into QA-style records. Each item keeps the question, answer, source title, and source URL when available. The final collection contains 52 raw documents and 1700 indexed QA records.
+
+\begin{table}[t]
+\centering
+\caption{Knowledge base statistics.}
+\label{tab:data}
+\begin{tabular}{lr}
+\toprule
+Item & Count \\
+\midrule
+Raw campus documents & 52 \\
+QA records & 1700 \\
+Indexed FAISS items & 1700 \\
+Evaluation questions & 30 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The indexed items are designed to be short and retrieval-friendly. Compared with storing long documents directly, the QA-style format makes the dense retriever more likely to match user questions with relevant evidence. This is especially useful for campus service information, where users often ask short natural-language questions rather than keyword-style queries.
+
+\section{Implementation}
+
+The system is deployed on a remote GPU server. The generation model is served through vLLM and accessed through an OpenAI-compatible chat-completion API \citep{kwon2023vllm}. Embedding and reranking are executed in the RAG service process. A Gradio interface is used for interactive demonstration and qualitative testing.
+
+\begin{table}[t]
+\centering
+\caption{Main system configuration.}
+\label{tab:config}
+\begin{tabularx}{\columnwidth}{lY}
+\toprule
+Component & Configuration \\
+\midrule
+Generator & Qwen3-32B served by vLLM \\
+Embedding & Qwen3-Embedding-0.6B \\
+Index & FAISS dense vector index \citep{johnson2019faiss} \\
+Retriever & TOP\_K=30 \\
+Reranker & bge-reranker-v2-m3 \\
+Context & Top 5 chunks after reranking \\
+Frontend & Gradio web application \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Dense Retrieval}
+
+For each user question, the system first encodes the query into a dense vector and searches the FAISS index for the top candidate QA records. The retriever returns a relatively large candidate set, which gives the reranker enough evidence to reorder. In this project, the initial retrieval size is set to 30.
+
+\subsection{LLM Query Rewriting}
+
+To make retrieval more robust and fair, each evaluation question is normalized to explicitly mention SUSTech. This avoids a setting where the direct LLM can answer using generic knowledge about other universities. The query rewriting module then converts the qualified user question into a retrieval-oriented SUSTech query.
+
+For example, a user question about who can live in on-campus faculty apartments is rewritten into a more explicit query about the target residents of SUSTech faculty apartments. The rewritten query is used only for retrieval and reranking. The original qualified question is still used for final answer generation and evaluation.
+
+\subsection{Reranking}
+
+After initial retrieval, the BGE reranker reorders the retrieved candidates according to their relevance to the query. The final context is constructed from the top five reranked chunks. This step increases the probability that the generator receives the most useful evidence, especially when the initial dense retriever returns partially relevant or duplicated records.
+
+\section{Evaluation Design}
+
+\subsection{Compared Systems}
+
+Four systems are compared on the same 30-question test set.
+
+\begin{itemize}
+    \item \textbf{Direct}: Qwen3-32B answers directly without retrieval.
+    \item \textbf{Basic RAG}: FAISS retrieval followed by Qwen3-32B generation.
+    \item \textbf{RAG Rerank}: FAISS retrieval, BGE reranking, and generation.
+    \item \textbf{RAG Rewrite Rerank}: LLM query rewriting, FAISS retrieval, BGE reranking, and generation.
+\end{itemize}
+
+\subsection{Metrics}
+
+The evaluation separates retrieval quality and generation quality. Retrieval is measured by Recall@K, Precision@K, MRR@K, nDCG@K, evidence rank, and context relevance. Generation is measured by answer correctness, relevance, completeness, faithfulness, groundedness, citation accuracy, hallucination rate, and refusal behavior. A score of 2 or higher on a 0--3 scale is treated as passing. End-to-end latency is also recorded.
+
+\section{Results}
+
+\subsection{Answer Quality}
+
+Table~\ref{tab:answer_quality} and Figure~\ref{fig:quality} show answer quality. Direct LLM answering performs poorly on SUSTech-specific questions, with only 36.67\% correctness and a 66.67\% hallucination rate. Basic RAG improves correctness to 80.00\% and reduces hallucination to 0.00\%. Reranking further improves correctness to 86.67\%. Query rewriting does not further improve final correctness on this small test set, but it improves answer relevance and completeness.
+
+\begin{table*}[t]
+\centering
+\caption{Answer quality comparison. Correctness pass means answer correctness score $\geq 2$.}
+\label{tab:answer_quality}
+\begin{tabular}{lrrrrrr}
+\toprule
+System & Correct. Pass & Avg. Correct. & Faithful Pass & Citation Pass & Hallucination & Latency \\
+\midrule
+Direct & 36.67\% & 1.17 & -- & -- & 66.67\% & 8.35s \\
+Basic RAG & 80.00\% & 2.40 & 100.00\% & 100.00\% & 0.00\% & 3.18s \\
+RAG Rerank & 86.67\% & 2.60 & 100.00\% & 100.00\% & 0.00\% & 9.87s \\
+RAG Rewrite Rerank & 86.67\% & 2.60 & 100.00\% & 100.00\% & 0.00\% & 10.82s \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{figures/rag_eval_quality_comparison.png}
+\caption{Answer quality comparison across the four systems. RAG improves correctness and removes hallucinations in this test set.}
+\label{fig:quality}
+\end{figure}
+
+\subsection{Retrieval Quality}
+
+Table~\ref{tab:retrieval} and Figure~\ref{fig:retrieval} show retrieval quality. Reranking significantly improves ranking quality: MRR@5 increases from 70.56\% to 87.33\%, and nDCG@5 increases from 76.23\% to 88.30\%. Query rewriting further improves Recall@5 to 96.67\%, MRR@5 to 94.44\%, and nDCG@5 to 95.86\%. This indicates that rewrite-plus-rerank is the strongest retrieval configuration.
+
+\begin{table}[t]
+\centering
+\caption{Retrieval quality at top 5.}
+\label{tab:retrieval}
+\begin{tabular}{lrrrr}
+\toprule
+System & R@5 & P@5 & MRR@5 & nDCG@5 \\
+\midrule
+Basic RAG & 86.67 & 38.00 & 70.56 & 76.23 \\
+RAG Rerank & 90.00 & 47.33 & 87.33 & 88.30 \\
+Rewrite Rerank & 96.67 & 46.67 & 94.44 & 95.86 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{figures/rag_eval_retrieval_comparison.png}
+\caption{Retrieval quality comparison. Query rewriting improves Recall@5 and ranking metrics.}
+\label{fig:retrieval}
+\end{figure}
+
+\subsection{Latency Trade-off}
+
+Figure~\ref{fig:latency} shows the latency trade-off. Basic RAG is the fastest RAG system because it avoids extra reranking and rewriting. Rewrite-plus-rerank achieves the best retrieval quality but requires an additional LLM call and reranker inference. In practice, Basic RAG is suitable for faster interaction, while rewrite-plus-rerank is preferable when evidence quality is more important.
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{figures/rag_eval_latency_comparison.png}
+\caption{Average end-to-end latency.}
+\label{fig:latency}
+\end{figure}
+
+\section{Case Study}
+
+\subsection{Successful Grounding}
+
+For a question about who can live in SUSTech on-campus faculty apartments, the direct LLM gives a plausible but generic answer: it says the apartments are mainly for university faculty and staff. The gold answer is more specific: they are mainly for teaching and research series personnel at assistant professor level or above.
+
+The rewrite-plus-rerank system retrieves the official housing page and answers with the specific target group. This example shows the key benefit of RAG: the answer is grounded in a campus-specific source instead of generic model memory.
+
+\subsection{Failure Analysis}
+
+The system still fails on several questions. Representative examples include the 2022-and-later general elective credit requirement, library branch opening hours, and national scholarship policy questions. Some errors are retrieval failures, while others are caused by incomplete or conflicting context. This suggests that knowledge base coverage and evidence annotation should be improved before deploying the system in a real campus setting.
+
+\section{Discussion}
+
+The experiments support three findings. First, RAG greatly improves reliability for local knowledge: direct answering is weak because campus details are not reliably stored in model parameters. Second, reranking improves evidence ordering and therefore improves downstream correctness. Third, query rewriting improves retrieval recall but adds latency. Better retrieval is necessary but not always sufficient: when retrieved context is incomplete or conflicting, the generator may still refuse or produce an incomplete answer.
+
+\section{Limitations}
+
+This project has several limitations. The evaluation set has only 30 questions, so the results should be interpreted as project-level evidence rather than a large-scale benchmark. LLM-as-a-judge is scalable but may introduce scoring variance. More unanswerable questions should be added to evaluate refusal behavior. Finally, the knowledge base quality determines the system ceiling: missing, duplicated, or outdated documents can still lead to wrong answers.
+
+\section{Conclusion}
+
+This project implements and evaluates a complete RAG system for SUSTech campus knowledge question answering. Compared with direct Qwen3-32B answering, RAG improves answer correctness from 36.67\% to at least 80.00\% and reduces hallucination from 66.67\% to 0.00\%. Reranking further improves correctness to 86.67\%. LLM query rewriting achieves the best retrieval quality, reaching 96.67\% Recall@5 and 95.86\% nDCG@5. Overall, the system demonstrates that retrieval augmentation is highly effective for institution-specific question answering, especially when factual accuracy, grounding, and source traceability are required.
+
+\bibliography{references}
+\bibliographystyle{icml2025}
+
+\end{document}
