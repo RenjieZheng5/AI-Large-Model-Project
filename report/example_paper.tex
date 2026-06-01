@@ -76,12 +76,14 @@
 \end{icmlauthorlist}
 
 \icmlaffiliation{sustech}{Southern University of Science and Technology, Shenzhen, China}
+\icmlcorrespondingauthor{Zheng Renjie}{12412840@mail.sustech.edu.cn}
+
 \icmlkeywords{Retrieval-Augmented Generation, Campus Question Answering, Dense Retrieval, Reranking, Query Rewriting}
 
 \vskip 0.3in
 ]
 
-\printAffiliationsAndNotice{}
+%\printAffiliationsAndNotice{}
 
 \begin{abstract}
 This project builds a Retrieval-Augmented Generation (RAG) question answering system for Southern University of Science and Technology (SUSTech) campus knowledge. The system collects campus-related web documents, constructs a QA-style knowledge base, indexes it with dense embeddings and FAISS, and answers user questions through a locally deployed Qwen3-32B model. To improve retrieval quality, the system supports BGE reranking and LLM-based query rewriting. We evaluate four settings: direct LLM answering, basic RAG, RAG with reranking, and RAG with both query rewriting and reranking. On a 30-question SUSTech test set, direct LLM answering reaches only 36.67\% correctness with a 66.67\% hallucination rate. Basic RAG improves correctness to 80.00\% and reduces hallucination to 0.00\%. Reranking further improves correctness to 86.67\%, while the rewrite-plus-rerank setting achieves the best retrieval quality with Recall@5 of 96.67\%, MRR@5 of 94.44\%, and nDCG@5 of 95.86\%. These results show that RAG substantially improves factual accuracy, grounding, and source traceability for university-specific question answering.
