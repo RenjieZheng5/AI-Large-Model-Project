@@ -1,23 +1,29 @@
 import os
+from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_DIR / "data"
+RESULTS_DIR = PROJECT_DIR / "results"
+CHART_DIR = RESULTS_DIR / "charts"
 
 DATA_PATH = os.environ.get(
     "DATA_PATH",
-    "/root/AI-Large-Model-Project/sustech_qa_pairs.jsonl"
+    str(DATA_DIR / "sustech_qa_pairs.jsonl")
 )
 
 INDEX_DIR = os.environ.get(
     "INDEX_DIR",
-    "/root/AI-Large-Model-Project/rag_index_sustech_qwen3_embedding"
+    str(DATA_DIR / "rag_index_sustech_qwen3_embedding")
 )
 
 EMBED_MODEL_PATH = os.environ.get(
     "EMBED_MODEL_PATH",
-    "/root/autodl-tmp/models/Qwen/Qwen3-Embedding-0___6B"
+    "/path/to/Qwen3-Embedding-0.6B"
 )
 
 LLM_MODEL_PATH = os.environ.get(
     "LLM_MODEL_PATH",
-    "/autodl-fs/data/models/Qwen3-32B"
+    "/path/to/Qwen3-32B"
 )
 
 VLLM_URL = os.environ.get(
@@ -38,7 +44,7 @@ USE_RERANKER = os.environ.get("USE_RERANKER", "1") == "1"
 # reranker 模型路径
 RERANK_MODEL_PATH = os.environ.get(
     "RERANK_MODEL_PATH",
-    "/autodl-fs/data/models/bge-reranker-v2-m3"
+    "/path/to/bge-reranker-v2-m3"
 )
 
 # reranker 重排后保留多少条进入 LLM

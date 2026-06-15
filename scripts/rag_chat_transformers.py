@@ -1,7 +1,12 @@
 import os
 import json
+import sys
 import textwrap
+from pathlib import Path
 from typing import List, Dict, Any
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 import faiss
 import torch
@@ -25,7 +30,7 @@ from reranker import BGEReranker
 
 LLM_MODEL_PATH = os.environ.get(
     "LLM_MODEL_PATH",
-    "/autodl-fs/data/models/Qwen3-32B"
+    "/path/to/Qwen3-32B"
 )
 
 # 单独给 reranker 一个设备配置，避免它和 embedding 强绑定。

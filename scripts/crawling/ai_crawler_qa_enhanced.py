@@ -5,6 +5,7 @@ import json
 import time
 import hashlib
 from io import BytesIO
+from pathlib import Path
 from collections import deque
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qsl, urlencode
 
@@ -20,6 +21,9 @@ try:
     import openpyxl
 except Exception:
     openpyxl = None
+
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_DIR / "data"
 
 
 class EnhancedAICampusQACrawler:
@@ -49,9 +53,9 @@ class EnhancedAICampusQACrawler:
         max_qa_per_chunk=8,
         chunk_size=2200,
         overlap=300,
-        output_file="sustech_qa_pairs.jsonl",
-        raw_output_file="sustech_raw_documents.jsonl",
-        failed_output_file="sustech_failed_urls.jsonl",
+        output_file=str(DATA_DIR / "sustech_qa_pairs.jsonl"),
+        raw_output_file=str(DATA_DIR / "sustech_raw_documents.jsonl"),
+        failed_output_file=str(DATA_DIR / "sustech_failed_urls.jsonl"),
         model="deepseek-chat",
         delay=0.6,
         skip_existing_urls=True,
@@ -77,6 +81,9 @@ class EnhancedAICampusQACrawler:
         self.output_file = output_file
         self.raw_output_file = raw_output_file
         self.failed_output_file = failed_output_file
+        os.makedirs(os.path.dirname(self.output_file) or ".", exist_ok=True)
+        os.makedirs(os.path.dirname(self.raw_output_file) or ".", exist_ok=True)
+        os.makedirs(os.path.dirname(self.failed_output_file) or ".", exist_ok=True)
         self.model = model
         self.delay = delay
         self.skip_existing_urls = skip_existing_urls
@@ -720,9 +727,9 @@ if __name__ == "__main__":
         max_depth=2,
         max_links_per_page=80,
         max_qa_per_chunk=8,
-        output_file="sustech_qa_pairs.jsonl",
-        raw_output_file="sustech_raw_documents.jsonl",
-        failed_output_file="sustech_failed_urls.jsonl",
+        output_file=str(DATA_DIR / "sustech_qa_pairs.jsonl"),
+        raw_output_file=str(DATA_DIR / "sustech_raw_documents.jsonl"),
+        failed_output_file=str(DATA_DIR / "sustech_failed_urls.jsonl"),
         model="deepseek-chat",
         delay=0.6,
         skip_existing_urls=True,

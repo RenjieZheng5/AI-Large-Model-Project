@@ -1,11 +1,11 @@
 {
   "config": {
-    "input_xlsx": "/root/AI-Large-Model-Project/sustech_rag_test_questions.xlsx",
+    "input_xlsx": "data/sustech_rag_test_questions.xlsx",
     "sheet_name": "TestSet",
     "vllm_url": "http://127.0.0.1:8000/v1/chat/completions",
     "vllm_model": "qwen3-32b",
-    "index_dir": "/root/AI-Large-Model-Project/rag_index_sustech_qwen3_embedding",
-    "embedding_model": "/root/autodl-tmp/models/Qwen/Qwen3-Embedding-0___6B",
+    "index_dir": "data/rag_index_sustech_qwen3_embedding",
+    "embedding_model": "$EMBED_MODEL_PATH",
     "top_k": 30,
     "rerank_top_n": 5,
     "use_reranker": true,
@@ -254,8 +254,8 @@
     }
   },
   "charts": [
-    "/root/AI-Large-Model-Project/eval_charts/rag_eval_quality_comparison.png",
-    "/root/AI-Large-Model-Project/eval_charts/rag_eval_retrieval_comparison.png",
-    "/root/AI-Large-Model-Project/eval_charts/rag_eval_latency_comparison.png"
+    "results/charts/rag_eval_quality_comparison.png",
+    "results/charts/rag_eval_retrieval_comparison.png",
+    "results/charts/rag_eval_latency_comparison.png"
   ]
 }

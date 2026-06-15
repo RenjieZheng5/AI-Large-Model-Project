@@ -1,6 +1,6 @@
 {
-  "data_path": "/root/AI-Large-Model-Project/sustech_qa_pairs.jsonl",
-  "embedding_model": "/root/autodl-tmp/models/Qwen/Qwen3-Embedding-0___6B",
+  "data_path": "data/sustech_qa_pairs.jsonl",
+  "embedding_model": "$EMBED_MODEL_PATH",
   "num_items": 1700,
   "dimension": 1024,
   "index_type": "faiss.IndexFlatIP",

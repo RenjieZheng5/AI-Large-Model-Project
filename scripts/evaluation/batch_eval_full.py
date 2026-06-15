@@ -24,8 +24,9 @@ from urllib.parse import urlparse, urlunparse
 import pandas as pd
 import requests
 
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, PROJECT_DIR)
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+SRC_DIR = os.path.join(PROJECT_DIR, "src")
+sys.path.insert(0, SRC_DIR)
 
 from rag_config import (  # noqa: E402
     EMBED_DEVICE,
@@ -44,11 +45,13 @@ from rag_chat import FaissRetriever, Qwen3Embedder, build_context, call_vllm, st
 from reranker import BGEReranker  # noqa: E402
 
 
-INPUT_XLSX = os.path.join(PROJECT_DIR, "sustech_rag_test_questions.xlsx")
-OUTPUT_XLSX = os.path.join(PROJECT_DIR, "sustech_rag_batch_results_full.xlsx")
-OUTPUT_JSON = os.path.join(PROJECT_DIR, "sustech_rag_batch_results_full.json")
-PARTIAL_OUTPUT_XLSX = os.path.join(PROJECT_DIR, "sustech_rag_batch_results_full.partial.xlsx")
-CHART_DIR = os.path.join(PROJECT_DIR, "eval_charts")
+DATA_DIR = os.path.join(PROJECT_DIR, "data")
+RESULTS_DIR = os.path.join(PROJECT_DIR, "results")
+INPUT_XLSX = os.path.join(DATA_DIR, "sustech_rag_test_questions.xlsx")
+OUTPUT_XLSX = os.path.join(RESULTS_DIR, "sustech_rag_batch_results_full.xlsx")
+OUTPUT_JSON = os.path.join(RESULTS_DIR, "sustech_rag_batch_results_full.json")
+PARTIAL_OUTPUT_XLSX = os.path.join(RESULTS_DIR, "sustech_rag_batch_results_full.partial.xlsx")
+CHART_DIR = os.path.join(RESULTS_DIR, "charts")
 SHEET_NAME = os.environ.get("EVAL_SHEET_NAME", "TestSet")
 
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "512"))
@@ -559,6 +562,9 @@ def compact_retrieved(results: List[Dict[str, Any]]) -> Tuple[str, str]:
 
 
 def evaluate() -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(CHART_DIR, exist_ok=True)
+
     df = pd.read_excel(INPUT_XLSX, sheet_name=SHEET_NAME)
     required_cols = {"Test_ID", "Test_Question", "Gold_Answer"}
     missing = required_cols - set(df.columns)

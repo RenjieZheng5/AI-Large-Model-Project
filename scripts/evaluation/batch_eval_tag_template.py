@@ -18,6 +18,7 @@ For rag_answer, import the answer function from your project code (the same logi
 from __future__ import annotations
 
 import os
+import sys
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -25,13 +26,18 @@ from typing import Optional
 import pandas as pd
 import requests
 
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+SRC_DIR = os.path.join(PROJECT_DIR, "src")
+sys.path.insert(0, SRC_DIR)
+DATA_DIR = os.path.join(PROJECT_DIR, "data")
+RESULTS_DIR = os.path.join(PROJECT_DIR, "results")
 
 INPUT_XLSX = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
+    DATA_DIR,
     "sustech_rag_test_questions.xlsx",
 )
 OUTPUT_XLSX = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
+    RESULTS_DIR,
     "sustech_rag_batch_results.xlsx",
 )
 SHEET_NAME = "TestSet"  # 测试问题在 TestSet sheet 中
@@ -68,9 +74,6 @@ def rag_answer(question: str) -> str:
     global _rag_embedder, _rag_retriever, _rag_reranker
 
     if "_rag_embedder" not in globals():
-        import sys
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
         from rag_config import (
             INDEX_DIR, EMBED_MODEL_PATH, TOP_K,
             EMBED_DEVICE, USE_RERANKER, RERANK_MODEL_PATH,
@@ -119,6 +122,8 @@ def rag_answer(question: str) -> str:
 
 
 def main() -> None:
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+
     df = pd.read_excel(INPUT_XLSX, sheet_name=SHEET_NAME)
     required_cols = {"Test_ID", "Test_Question", "Gold_Answer"}
     missing = required_cols - set(df.columns)

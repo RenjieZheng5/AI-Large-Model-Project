@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 from pathlib import Path
 
 import faiss
@@ -8,6 +9,9 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 from rag_config import DATA_PATH, INDEX_DIR, EMBED_MODEL_PATH, MAX_EMBED_LEN, EMBED_DEVICE
 

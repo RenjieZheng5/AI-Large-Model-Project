@@ -86,7 +86,7 @@
 %\printAffiliationsAndNotice{}
 
 \begin{abstract}
-This project builds a Retrieval-Augmented Generation (RAG) question answering system for Southern University of Science and Technology (SUSTech) campus knowledge. The system collects campus-related web documents, constructs a QA-style knowledge base, indexes it with dense embeddings and FAISS, and answers user questions through a locally deployed Qwen3-32B model. To improve retrieval quality, the system supports BGE reranking and LLM-based query rewriting. We evaluate four settings: direct LLM answering, basic RAG, RAG with reranking, and RAG with both query rewriting and reranking. On a 30-question SUSTech test set, direct LLM answering reaches only 36.67\% correctness with a 66.67\% hallucination rate. Basic RAG improves correctness to 80.00\% and reduces hallucination to 0.00\%. Reranking further improves correctness to 86.67\%, while the rewrite-plus-rerank setting achieves the best retrieval quality with Recall@5 of 96.67\%, MRR@5 of 94.44\%, and nDCG@5 of 95.86\%. These results show that RAG substantially improves factual accuracy, grounding, and source traceability for university-specific question answering.
+This project builds a Retrieval-Augmented Generation (RAG) question answering system for Southern University of Science and Technology (SUSTech) campus knowledge. The system collects campus-related web documents, constructs a QA-style knowledge base, indexes it with dense embeddings and FAISS, and answers user questions through a locally deployed Qwen3-32B model. To improve retrieval quality, the system supports BGE reranking and LLM-based query rewriting. We evaluate four settings: direct LLM answering, basic RAG, RAG with reranking, and RAG with both query rewriting and reranking. On a 30-question SUSTech test set, direct LLM answering reaches only 36.67\% correctness with a 66.67\% hallucination rate. Basic RAG improves correctness to 80.00\% and reduces hallucination to 0.00\%. Reranking further improves correctness to 86.67\%, while the rewrite-plus-rerank setting achieves the best retrieval quality with Recall@5 of 96.67\%, MRR@5 of 94.44\%, and nDCG@5 of 95.86\%. A latency diagnostic further shows that Basic RAG is faster than direct answering mainly because it reduces average completion length from 180.53 to 56.13 tokens, more than offsetting 0.74s of retrieval overhead. These results show that RAG substantially improves factual accuracy, grounding, source traceability, and response efficiency for university-specific question answering.
 \end{abstract}
 
 \section{Introduction}
@@ -100,6 +100,7 @@ The project studies three research questions:
     \item Does RAG improve answer correctness compared with direct LLM answering?
     \item Do reranking and query rewriting improve retrieval quality?
     \item Can the final system reduce hallucination and provide more traceable answers?
+    \item Why can Basic RAG be faster than direct LLM answering even though it adds retrieval?
 \end{enumerate}
 
 \section{System Overview}
@@ -189,6 +190,8 @@ Four systems are compared on the same 30-question test set.
 
 The evaluation separates retrieval quality and generation quality. Retrieval is measured by Recall@K, Precision@K, MRR@K, nDCG@K, evidence rank, and context relevance. Generation is measured by answer correctness, relevance, completeness, faithfulness, groundedness, citation accuracy, hallucination rate, and refusal behavior. A score of 2 or higher on a 0--3 scale is treated as passing. End-to-end latency is also recorded.
 
+To explain the surprising latency result that Basic RAG is faster than Direct, we run an additional diagnostic experiment on the same 30 questions. This experiment compares only Direct and Basic RAG and records prompt tokens, completion tokens, retrieval latency, generation latency, total latency, and generation throughput from the vLLM API response. This separates the cost of retrieval from the cost of autoregressive answer generation.
+
 \section{Results}
 
 \subsection{Answer Quality}
@@ -244,7 +247,7 @@ Rewrite Rerank & 96.67 & 46.67 & 94.44 & 95.86 \\
 \label{fig:retrieval}
 \end{figure}
 
-\subsection{Latency Trade-off}
+\subsection{Latency Trade-off and Diagnostic Analysis}
 
 Figure~\ref{fig:latency} shows the latency trade-off. Basic RAG is the fastest RAG system because it avoids extra reranking and rewriting. Rewrite-plus-rerank achieves the best retrieval quality but requires an additional LLM call and reranker inference. In practice, Basic RAG is suitable for faster interaction, while rewrite-plus-rerank is preferable when evidence quality is more important.
 
@@ -253,6 +256,38 @@ Figure~\ref{fig:latency} shows the latency trade-off. Basic RAG is the fastest R
 \safeincludegraphics[width=\columnwidth]{figures/rag_eval_latency_comparison.png}
 \caption{Average end-to-end latency.}
 \label{fig:latency}
+\end{figure}
+
+The diagnostic experiment explains why Basic RAG can even be faster than Direct. Table~\ref{tab:latency_diagnostic} shows that Basic RAG spends 0.741s on retrieval on average. Its prompt is longer because it includes retrieved evidence, but its answer is much shorter: 56.13 completion tokens compared with 180.53 for Direct. Since autoregressive decoding cost scales mainly with the number of generated tokens, this output-length reduction dominates the retrieval overhead. The generation throughput is similar for the two settings, with 20.58 tokens/s for Direct and 18.89 tokens/s for Basic RAG, so the result should not be interpreted as the model becoming faster per token. Instead, the retrieved evidence and stricter grounded-answer instruction reduce open-ended explanation and hallucinated elaboration. The correlation between generation latency and completion tokens is also almost perfect in this diagnostic run: 1.0000 for Direct and 0.9998 for Basic RAG.
+
+\begin{table}[t]
+\centering
+\caption{Latency diagnostic for Direct and Basic RAG on the same 30 questions.}
+\label{tab:latency_diagnostic}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+System & Input Tok. & Output Tok. & Retrieval & Generation & Total \\
+\midrule
+Direct & 51.80 & 180.53 & 0.000s & 8.757s & 8.757s \\
+Basic RAG & 580.73 & 56.13 & 0.741s & 2.842s & 3.583s \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{figures/rag_latency_diagnostic_breakdown.png}
+\caption{Latency decomposition for Direct and Basic RAG. Retrieval overhead is small; the main difference is generation time.}
+\label{fig:latency_breakdown}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{figures/rag_latency_vs_output_tokens.png}
+\caption{Generation latency versus completion tokens. The near-linear pattern shows that shorter RAG answers are the main reason for lower latency.}
+\label{fig:latency_tokens}
 \end{figure}
 
 \section{Case Study}
@@ -269,7 +304,7 @@ The system still fails on several questions. Representative examples include the
 
 \section{Discussion}
 
-The experiments support three findings. First, RAG greatly improves reliability for local knowledge: direct answering is weak because campus details are not reliably stored in model parameters. Second, reranking improves evidence ordering and therefore improves downstream correctness. Third, query rewriting improves retrieval recall but adds latency. Better retrieval is necessary but not always sufficient: when retrieved context is incomplete or conflicting, the generator may still refuse or produce an incomplete answer.
+The experiments support four findings. First, RAG greatly improves reliability for local knowledge: direct answering is weak because campus details are not reliably stored in model parameters. Second, reranking improves evidence ordering and therefore improves downstream correctness. Third, query rewriting improves retrieval recall but adds latency. Fourth, Basic RAG can be faster than direct answering when the retrieved context constrains output length. Better retrieval is necessary but not always sufficient: when retrieved context is incomplete or conflicting, the generator may still refuse or produce an incomplete answer.
 
 \section{Limitations}
 
@@ -277,7 +312,7 @@ This project has several limitations. The evaluation set has only 30 questions, 
 
 \section{Conclusion}
 
-This project implements and evaluates a complete RAG system for SUSTech campus knowledge question answering. Compared with direct Qwen3-32B answering, RAG improves answer correctness from 36.67\% to at least 80.00\% and reduces hallucination from 66.67\% to 0.00\%. Reranking further improves correctness to 86.67\%. LLM query rewriting achieves the best retrieval quality, reaching 96.67\% Recall@5 and 95.86\% nDCG@5. Overall, the system demonstrates that retrieval augmentation is highly effective for institution-specific question answering, especially when factual accuracy, grounding, and source traceability are required.
+This project implements and evaluates a complete RAG system for SUSTech campus knowledge question answering. Compared with direct Qwen3-32B answering, RAG improves answer correctness from 36.67\% to at least 80.00\% and reduces hallucination from 66.67\% to 0.00\%. Reranking further improves correctness to 86.67\%. LLM query rewriting achieves the best retrieval quality, reaching 96.67\% Recall@5 and 95.86\% nDCG@5. The latency diagnostic further shows that Basic RAG is faster because it reduces average completion length from 180.53 to 56.13 tokens, more than compensating for retrieval overhead. Overall, the system demonstrates that retrieval augmentation is highly effective for institution-specific question answering, especially when factual accuracy, grounding, source traceability, and concise response generation are required.
 
 \bibliography{references}
 \bibliographystyle{icml2025}

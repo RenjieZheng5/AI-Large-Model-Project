@@ -1,0 +1,17 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Local secrets and machine-specific config
+.env
+*.local
+
+# Logs and temporary files
+*.log
+*.tmp
+~$*

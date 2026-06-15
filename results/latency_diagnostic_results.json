@@ -1,0 +1,43 @@
+{
+  "config": {
+    "input_xlsx": "data/sustech_rag_test_questions.xlsx",
+    "sheet_name": "TestSet",
+    "vllm_url": "http://127.0.0.1:8000/v1/chat/completions",
+    "vllm_model": "qwen3-32b",
+    "top_k": 30,
+    "context_top_n": 5,
+    "repetitions": 1,
+    "max_tokens": 512
+  },
+  "summary": {
+    "Basic_RAG": {
+      "n": 30,
+      "avg_total_latency_s": 3.5831,
+      "avg_retrieval_latency_s": 0.7412,
+      "avg_generation_latency_s": 2.8419,
+      "avg_prompt_tokens": 580.7333,
+      "avg_completion_tokens": 56.1333,
+      "avg_total_tokens": 636.8667,
+      "avg_answer_chars": 88.0,
+      "avg_tokens_per_second": 18.8853,
+      "latency_completion_token_corr": 0.9998
+    },
+    "Direct": {
+      "n": 30,
+      "avg_total_latency_s": 8.7571,
+      "avg_retrieval_latency_s": 0.0,
+      "avg_generation_latency_s": 8.7571,
+      "avg_prompt_tokens": 51.8,
+      "avg_completion_tokens": 180.5333,
+      "avg_total_tokens": 232.3333,
+      "avg_answer_chars": 309.5,
+      "avg_tokens_per_second": 20.5849,
+      "latency_completion_token_corr": 1.0
+    }
+  },
+  "charts": [
+    "results/charts/rag_latency_diagnostic_breakdown.png",
+    "results/charts/rag_latency_vs_output_tokens.png"
+  ],
+  "csv": "results/latency_diagnostic_results.csv"
+}

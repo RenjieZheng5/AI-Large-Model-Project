@@ -1,6 +1,11 @@
 import os
 import json
+import sys
+from pathlib import Path
 from typing import List, Dict, Any
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 import faiss
 import torch
@@ -19,7 +24,7 @@ USE_RERANKER = os.environ.get("USE_RERANKER", "1") == "1"
 
 RERANK_MODEL_PATH = os.environ.get(
     "RERANK_MODEL_PATH",
-    "/autodl-fs/data/models/bge-reranker-v2-m3"
+    "/path/to/bge-reranker-v2-m3"
 )
 
 RERANK_TOP_N = int(os.environ.get("RERANK_TOP_N", "5"))
