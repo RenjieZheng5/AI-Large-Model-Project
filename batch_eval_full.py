@@ -783,6 +783,21 @@ def generate_charts(report: Dict[str, Any]) -> List[str]:
     colors = ["#4C78A8", "#59A14F", "#F28E2B", "#B279A2", "#E15759"]
     chart_paths: List[str] = []
 
+    plt.rcParams.update(
+        {
+            "font.weight": "semibold",
+            "axes.labelweight": "semibold",
+            "axes.titleweight": "bold",
+        }
+    )
+
+    def style_axis(ax: Any) -> None:
+        ax.tick_params(axis="both", labelsize=10, width=1.2)
+        for label in ax.get_xticklabels() + ax.get_yticklabels():
+            label.set_fontweight("semibold")
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.1)
+
     def value(path: List[str], default: float = 0.0) -> float:
         node: Any = report
         for key in path:
@@ -802,18 +817,33 @@ def generate_charts(report: Dict[str, Any]) -> List[str]:
     width = 0.18
     x_positions = list(range(len(quality_metrics)))
     for i, system in enumerate(systems):
-        values = [getter(system) for _, getter in quality_metrics]
+        values = [round(getter(system), 2) for _, getter in quality_metrics]
         xs = [x + (i - (len(systems) - 1) / 2) * width for x in x_positions]
         ax.bar(xs, values, width=width, label=system, color=colors[i % len(colors)])
         for x, y in zip(xs, values):
-            ax.text(x, min(y + 0.025, 1.04), f"{y:.2f}", ha="center", va="bottom", fontsize=8)
-    ax.set_title("SUSTech RAG Answer Quality Comparison", fontsize=14, weight="bold")
-    ax.set_ylabel("Rate")
+            ax.text(
+                x,
+                min(y + 0.025, 1.04),
+                f"{y:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="semibold",
+            )
+    ax.set_title("SUSTech RAG Answer Quality Comparison", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Rate", fontsize=12, fontweight="semibold")
     ax.set_xticks(x_positions)
-    ax.set_xticklabels([name for name, _ in quality_metrics], rotation=12, ha="right")
+    ax.set_xticklabels([name for name, _ in quality_metrics], rotation=0, ha="center", fontweight="semibold")
     ax.set_ylim(0, 1.08)
     ax.grid(axis="y", alpha=0.25)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=min(len(systems), 4), frameon=False)
+    style_axis(ax)
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.18),
+        ncol=min(len(systems), 4),
+        frameon=False,
+        prop={"weight": "semibold", "size": 10},
+    )
     fig.tight_layout()
     quality_path = os.path.join(CHART_DIR, "rag_eval_quality_comparison.png")
     fig.savefig(quality_path, bbox_inches="tight")
@@ -827,18 +857,33 @@ def generate_charts(report: Dict[str, Any]) -> List[str]:
         width = 0.2
         x_positions = list(range(len(retrieval_metrics_to_plot)))
         for i, system in enumerate(retrieval_systems):
-            values = [value(["retrieval", system, metric]) for metric in retrieval_metrics_to_plot]
+            values = [round(value(["retrieval", system, metric]), 2) for metric in retrieval_metrics_to_plot]
             xs = [x + (i - (len(retrieval_systems) - 1) / 2) * width for x in x_positions]
             ax.bar(xs, values, width=width, label=system, color=colors[(i + 1) % len(colors)])
             for x, y in zip(xs, values):
-                ax.text(x, min(y + 0.025, 1.04), f"{y:.2f}", ha="center", va="bottom", fontsize=8)
-        ax.set_title("SUSTech RAG Retrieval Quality @5", fontsize=14, weight="bold")
-        ax.set_ylabel("Score")
+                ax.text(
+                    x,
+                    min(y + 0.025, 1.04),
+                    f"{y:.2f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                    fontweight="semibold",
+                )
+        ax.set_title("SUSTech RAG Retrieval Quality @5", fontsize=16, fontweight="bold")
+        ax.set_ylabel("Score", fontsize=12, fontweight="semibold")
         ax.set_xticks(x_positions)
-        ax.set_xticklabels(retrieval_metrics_to_plot)
+        ax.set_xticklabels(retrieval_metrics_to_plot, fontweight="semibold")
         ax.set_ylim(0, 1.08)
         ax.grid(axis="y", alpha=0.25)
-        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=min(len(retrieval_systems), 3), frameon=False)
+        style_axis(ax)
+        ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.18),
+            ncol=min(len(retrieval_systems), 3),
+            frameon=False,
+            prop={"weight": "semibold", "size": 10},
+        )
         fig.tight_layout()
         retrieval_path = os.path.join(CHART_DIR, "rag_eval_retrieval_comparison.png")
         fig.savefig(retrieval_path, bbox_inches="tight")
@@ -849,11 +894,20 @@ def generate_charts(report: Dict[str, Any]) -> List[str]:
     latencies = [value(["systems", system, "avg_total_latency_s"]) for system in systems]
     bars = ax.bar(systems, latencies, color=[colors[i % len(colors)] for i in range(len(systems))])
     for bar, latency in zip(bars, latencies):
-        ax.text(bar.get_x() + bar.get_width() / 2, latency + 0.08, f"{latency:.2f}s", ha="center", va="bottom", fontsize=9)
-    ax.set_title("SUSTech RAG Average Latency", fontsize=14, weight="bold")
-    ax.set_ylabel("Seconds")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            latency + 0.08,
+            f"{latency:.2f}s",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="semibold",
+        )
+    ax.set_title("SUSTech RAG Average Latency", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Seconds", fontsize=12, fontweight="semibold")
     ax.grid(axis="y", alpha=0.25)
-    ax.tick_params(axis="x", rotation=12)
+    ax.tick_params(axis="x", rotation=0)
+    style_axis(ax)
     fig.tight_layout()
     latency_path = os.path.join(CHART_DIR, "rag_eval_latency_comparison.png")
     fig.savefig(latency_path, bbox_inches="tight")
@@ -884,6 +938,25 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
             node = node[key]
         return float(node)
 
+    def load_bold_font(size: int) -> Any:
+        font_candidates = [
+            os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "arialbd.ttf"),
+            os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "tahomabd.ttf"),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        ]
+        for font_path in font_candidates:
+            if os.path.exists(font_path):
+                try:
+                    return ImageFont.truetype(font_path, size=size)
+                except Exception:
+                    pass
+        return ImageFont.load_default()
+
+    def draw_centered_text(draw: Any, center_x: float, y: float, text: str, font: Any, fill: str) -> None:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        draw.text((center_x - (bbox[2] - bbox[0]) / 2, y), text, fill=fill, font=font)
+
     def draw_grouped_bar(
         filename: str,
         title: str,
@@ -899,8 +972,10 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
         plot_h = height - margin_top - margin_bottom
         image = Image.new("RGB", (width, height), "white")
         draw = ImageDraw.Draw(image)
-        font = ImageFont.load_default()
-        title_font = ImageFont.load_default()
+        font = load_bold_font(26)
+        value_font = load_bold_font(24)
+        title_font = load_bold_font(42)
+        legend_font = load_bold_font(26)
 
         draw.text((margin_left, 38), title, fill="#222222", font=title_font)
         for i in range(6):
@@ -913,7 +988,7 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
         bar_w = min(70, group_w / (max(len(series), 1) + 1.2))
         for c_idx, category in enumerate(categories):
             center = margin_left + group_w * c_idx + group_w / 2
-            draw.text((center - 60, height - margin_bottom + 32), category, fill="#333333", font=font)
+            draw_centered_text(draw, center, height - margin_bottom + 32, category, font, "#333333")
             for s_idx, system in enumerate(series):
                 val = data[s_idx][c_idx]
                 x0 = center + (s_idx - (len(series) - 1) / 2) * bar_w * 1.15 - bar_w / 2
@@ -921,12 +996,12 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
                 y1 = margin_top + plot_h
                 y0 = y1 - int((min(val, y_max) / y_max) * plot_h)
                 draw.rectangle((x0, y0, x1, y1), fill=colors[s_idx % len(colors)])
-                draw.text((x0, y0 - 18), f"{val:.2f}", fill="#333333", font=font)
+                draw_centered_text(draw, (x0 + x1) / 2, y0 - 32, f"{val:.2f}", value_font, "#333333")
 
         legend_items = []
         legend_gap = 54
         for system in series:
-            text_bbox = draw.textbbox((0, 0), system, font=font)
+            text_bbox = draw.textbbox((0, 0), system, font=legend_font)
             text_w = text_bbox[2] - text_bbox[0]
             legend_items.append((system, 24 + 10 + text_w))
         total_legend_w = sum(width for _, width in legend_items) + legend_gap * max(len(legend_items) - 1, 0)
@@ -937,7 +1012,7 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
             x = cursor_x
             y = legend_y
             draw.rectangle((x, y, x + 24, y + 16), fill=colors[i % len(colors)])
-            draw.text((x + 34, y), system, fill="#333333", font=font)
+            draw.text((x + 34, y - 7), system, fill="#333333", font=legend_font)
             cursor_x += item_w + legend_gap
 
         path = os.path.join(CHART_DIR, filename)
@@ -958,8 +1033,9 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
         plot_h = height - margin_top - margin_bottom
         image = Image.new("RGB", (width, height), "white")
         draw = ImageDraw.Draw(image)
-        font = ImageFont.load_default()
-        title_font = ImageFont.load_default()
+        font = load_bold_font(26)
+        value_font = load_bold_font(26)
+        title_font = load_bold_font(42)
 
         draw.text((margin_left, 38), title, fill="#222222", font=title_font)
         for i in range(6):
@@ -979,16 +1055,8 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
             draw.rectangle((x0, y0, x1, y1), fill=colors[idx % len(colors)])
 
             value_label = f"{val:.2f}{suffix}" if suffix else f"{val:.2f}"
-            val_bbox = draw.textbbox((0, 0), value_label, font=font)
-            draw.text((center - (val_bbox[2] - val_bbox[0]) / 2, y0 - 20), value_label, fill="#333333", font=font)
-
-            label_bbox = draw.textbbox((0, 0), category, font=font)
-            draw.text(
-                (center - (label_bbox[2] - label_bbox[0]) / 2, height - margin_bottom + 36),
-                category,
-                fill="#333333",
-                font=font,
-            )
+            draw_centered_text(draw, center, y0 - 34, value_label, value_font, "#333333")
+            draw_centered_text(draw, center, height - margin_bottom + 36, category, font, "#333333")
 
         path = os.path.join(CHART_DIR, filename)
         image.save(path)
@@ -999,10 +1067,10 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
     for system in systems:
         quality_data.append(
             [
-                value(["systems", system, "answer_correctness", "pass_rate_ge_2"]),
-                value(["systems", system, "faithfulness", "pass_rate_ge_2"]),
-                value(["systems", system, "citation_accuracy", "pass_rate_ge_2"]),
-                value(["systems", system, "hallucination_rate"]),
+                round(value(["systems", system, "answer_correctness", "pass_rate_ge_2"]), 2),
+                round(value(["systems", system, "faithfulness", "pass_rate_ge_2"]), 2),
+                round(value(["systems", system, "citation_accuracy", "pass_rate_ge_2"]), 2),
+                round(value(["systems", system, "hallucination_rate"]), 2),
             ]
         )
     chart_paths.append(
@@ -1020,10 +1088,10 @@ def generate_charts_with_pillow(report: Dict[str, Any]) -> List[str]:
         retrieval_categories = ["Recall@5", "Precision@5", "MRR@5", "nDCG@5"]
         retrieval_data = [
             [
-                value(["retrieval", system, "recall@5"]),
-                value(["retrieval", system, "precision@5"]),
-                value(["retrieval", system, "mrr@5"]),
-                value(["retrieval", system, "ndcg@5"]),
+                round(value(["retrieval", system, "recall@5"]), 2),
+                round(value(["retrieval", system, "precision@5"]), 2),
+                round(value(["retrieval", system, "mrr@5"]), 2),
+                round(value(["retrieval", system, "ndcg@5"]), 2),
             ]
             for system in retrieval_systems
         ]
